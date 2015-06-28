@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="ADCookieIsolatedWebview : A true cookie isolated webview for cocoa (Mac osx). It handles both request-level cookie and JS-level cookie">
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>ADCookieIsolatedWebview</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/cyyuen/ADCookieIsolatedWebView">View on GitHub</a>
+
+          <h1 id="project_title">ADCookieIsolatedWebview</h1>
+          <h2 id="project_tagline">A true cookie isolated webview for cocoa (Mac osx). It handles both request-level cookie and JS-level cookie</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/cyyuen/ADCookieIsolatedWebView/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/cyyuen/ADCookieIsolatedWebView/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a id="adcookieisotatedwebview" class="anchor" href="#adcookieisotatedwebview" aria-hidden="true"><span class="octicon octicon-link"></span></a>ADCookieIsotatedWebView</h1>
+
+<p>A true cookie isolated webview for cocoa (Mac osx). It handles both request-level cookie and JS-level cookie</p>
+
+<h3>
+<a id="implementation" class="anchor" href="#implementation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Implementation</h3>
+
+<p>Web cookies in the Mac OSX are stored in the common cookie jar. That is your app are sharing cookies with others which could be a big issue for hybird app.
+Thanks to SASMITO ADIBOWO and <a href="https://github.com/jjconti" class="user-mention">@jjconti</a>, their excellent work archieve the Request-level cookie isolation. See:</p>
+
+<ul>
+<li>
+<a href="https://github.com/jjconti/swift-webview-isolated">https://github.com/jjconti/swift-webview-isolated</a> (swift-webview-isolated)</li>
+<li>
+<a href="http://cutecoder.org/programming/implementing-cookie-storage/">http://cutecoder.org/programming/implementing-cookie-storage/</a> (how to handle HTTP cookies)</li>
+<li>
+<a href="http://cutecoder.org/programming/handling-cookies-javascript-custom-jar/">http://cutecoder.org/programming/handling-cookies-javascript-custom-jar/</a> (how to handle JavaScript document.cookie cookies)</li>
+</ul>
+
+<p>In short, by using ResourceLoadDelegate, we can inject our own cookies from our own cookie jar to a NSURLRequst before it sent and retrieve the cookies from NSURLResponse after it return. It works very well for most of the site. However, some sites would like to use the cookie in its JS environment and this make problem because the cookies we intercepted don't push back to the JS environment. Also, the native implementation of "document.cookie" access the shared cookie jar. Therefore, we need JS-level cookie isolation.
+To implement this, I use Object.<strong>defineSetter</strong> and Object.<strong>defineGetter</strong> to override document.cookie's setter and getter, and make them point to our own cookie jar. See the following:</p>
+
+<div class="highlight highlight-objc"><pre>#<span class="pl-k">define</span> <span class="pl-en">JS_API_NAME</span> <span class="pl-s"><span class="pl-pds">@"</span>ADCIWEBVIEW<span class="pl-pds">"</span></span>
+
+- (<span class="pl-k">void</span>) webView:(<span class="pl-c1">WebView</span> *)sender didStartProvisionalLoadForFrame:(<span class="pl-c1">WebFrame</span> *)frame
+{
+    <span class="pl-c1">WebScriptObject</span> *wobj = sender.<span class="pl-smi">windowScriptObject</span>;
+
+    <span class="pl-c1">dispatch_async</span>(<span class="pl-c1">dispatch_get_main_queue</span>(), ^{
+        [wobj <span class="pl-c1">evaluateWebScript:</span>[<span class="pl-c1">NSString</span> <span class="pl-c1">stringWithFormat:</span><span class="pl-s"><span class="pl-pds">@"</span>document.__defineGetter__('cookie', function(){ return <span class="pl-c1">%@</span>.getCookie();})<span class="pl-pds">"</span></span>, JS_API_NAME]];
+
+        [wobj <span class="pl-c1">evaluateWebScript:</span>[<span class="pl-c1">NSString</span> <span class="pl-c1">stringWithFormat:</span><span class="pl-s"><span class="pl-pds">@"</span>document.__defineSetter__('cookie', function(v) { return <span class="pl-c1">%@</span>.setCookie(v);})<span class="pl-pds">"</span></span>, JS_API_NAME]];
+    });
+}</pre></div>
+
+<p>We inject the cookie interception code before the webview start loading anything to make sure every code would use our own cookie implementation.</p>
+
+<h3>
+<a id="status" class="anchor" href="#status" aria-hidden="true"><span class="octicon octicon-link"></span></a>Status</h3>
+
+<p>This project is created for proof of concept and there are some functionality missed.
+Currently, I only implemented JS cookie getter. JS cookie setter is not implemented.
+In addition, the cookie management is not complete. It haven't handle cookie expiration, session cookie.
+Contirbution are welcome.</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">ADCookieIsolatedWebview maintained by <a href="https://github.com/cyyuen">cyyuen</a></p>
+        <p>Published with <a href="https://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
