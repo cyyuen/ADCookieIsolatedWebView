@@ -10,8 +10,6 @@
 #import <WebKit/WebKit.h>
 
 #import "ADCookieIsolatedWebView.h"
-#import "Settings.h"
-#import "BSHTTPCookieStorage.h"
 
 @interface ADCookieIsolatedWebView()
 
@@ -70,7 +68,6 @@
 
 - (void) setCookie:(NSString *) cookieEpx
 {
-    
 }
 
 // ResourceLoadDelegate methods
@@ -86,11 +83,19 @@
     }
 }
 
+// FrameLoadDelegate methods
+#define JS_API_NAME @"ADCIWEBVIEW"
+
 - (NSURLRequest *) webView:(WebView *)sender resource:(id)identifier willSendRequest:(NSURLRequest *)request redirectResponse:(NSURLResponse *)redirectResponse fromDataSource:(WebDataSource *)dataSource
 {
     if (redirectResponse != nil && [redirectResponse isKindOfClass:[NSHTTPURLResponse class]]) {
         [self.cookieStorage handleCookiesInResponse:(NSHTTPURLResponse *)redirectResponse];
     }
+    
+    WebScriptObject *wobj = sender.windowScriptObject;
+    
+    [wobj evaluateWebScript:[NSString stringWithFormat:@"document.__defineGetter__('cookie', function(){ return %@.getCookie();})", JS_API_NAME]];
+    [wobj evaluateWebScript:[NSString stringWithFormat:@"document.__defineSetter__('cookie', function(v) { return %@.setCookie(v);})", JS_API_NAME]];
     
     NSMutableURLRequest *modifiedRequest = request.mutableCopy;
     
@@ -105,19 +110,9 @@
     return modifiedRequest;
 }
 
-// FrameLoadDelegate methods
-#define JS_API_NAME @"ADCIWEBVIEW"
 
 - (void) webView:(WebView *)sender didStartProvisionalLoadForFrame:(WebFrame *)frame
 {
-    WebScriptObject *wobj = sender.windowScriptObject;
-    
-    dispatch_async(dispatch_get_main_queue(), ^{
-        [wobj evaluateWebScript:[NSString stringWithFormat:@"document.__defineGetter__('cookie', function(){ return %@.getCookie();})", JS_API_NAME]];
-        
-        [wobj evaluateWebScript:[NSString stringWithFormat:@"document.__defineSetter__('cookie', function(v) { return %@.setCookie(v);})", JS_API_NAME]];
-    });
-    
     if (self.userFrameLoadDelegate && [self.userFrameLoadDelegate respondsToSelector:@selector(webView:didFinishLoadForFrame:)]) {
         [self.userFrameLoadDelegate webView:sender didFinishLoadForFrame:frame];
     }
